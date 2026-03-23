@@ -25,21 +25,8 @@ struct Engine {
         _shadow_pipeline.init("shadow.vert", "shadow.frag");
         _shadow_pipeline.create_shadow_framebuffer();
 
-        // cube with texture
-        _cube_textured.init(Primitive::eCube, "grass.png");
-        _cube_textured._transform._position.x = -2;
-        // cube with vertex colors
-        _cube_vertcols.init(Primitive::eCube);
-        _cube_vertcols._transform._position.x = +2;
-        // sphere
-        _sphere.init(Primitive::eSphere);
-
-        // sponza scene
-        _sponza.init("sponza/sponza.obj");
-        _sponza._transform._scale = glm::vec3{ 0.01f, 0.01f, 0.01f };
-
-        // move the camera to the back a little
-        _camera._position = { 3, 3, 0 };
+        // initialize camera from runner settings only
+        _camera._position = { 0.0f, 0.0f, 0.0f };
 
         // create light for lighting and shadows
         _light.init();
@@ -72,7 +59,7 @@ struct Engine {
         }
         
         // player transform
-        _runner_player._transform._position = glm::vec3(0.0f, _player_y, 0.0f);
+        _runner_player._transform._position = glm::vec3(0.0f, _player_y, 0.8f);
         _runner_player._transform._scale = glm::vec3(0.9f);
 
         // --- Initialize runner camera immediately ---
@@ -95,20 +82,24 @@ struct Engine {
 
     }
 
+
     ~Engine() {
-        // destroy in reversed init() order
-        SDL_DestroyAudioStream(audio_stream);
-        _sphere.destroy();
-        _cube_textured.destroy();
-        _cube_vertcols.destroy();
-        _pipeline.destroy();
-        _shadow_pipeline.destroy();
-        _window.destroy();
+        // destroy OpenGL objects first
         _runner_player.destroy();
         _runner_ground_tile.destroy();
         _runner_obstacle_cube.destroy();
 
+        _pipeline.destroy();
+        _shadow_pipeline.destroy();
+
+        // non-GL / SDL stuff after that
+        SDL_DestroyAudioStream(audio_stream);
+
+        // destroy window + GL context last
+        _window.destroy();
     }
+
+
 
     void handle_inputs() {
         // move via WASDQE
@@ -156,18 +147,28 @@ struct Engine {
 
 
         // draw shadows
-        if (_light._shadow_dirty) {
+        if (_runner_mode || _light._shadow_dirty) {
             _shadow_pipeline.bind();
             // render into each cubemap face separately
             for (uint32_t face_i = 0; face_i < 6; face_i++) {
                 _light.bind_shadow_write(_shadow_pipeline, face_i);
                 // draw the stuff
-                _sponza.draw(true);
-                _cube_textured.draw(true);
-                _cube_vertcols.draw(true);
-                _sphere.draw(true);
+                if (_runner_mode) {
+                    for (auto &t : _ground_tiles) {
+                        _runner_ground_tile._transform = t;
+                        _runner_ground_tile.draw(true);
+                    }
+                    _runner_player.draw(true);
+                    for (auto &o : _obstacles) {
+                        _runner_obstacle_cube._transform._position = glm::vec3(lane_x(o.lane), 0.6f, o.z);
+                        _runner_obstacle_cube._transform._scale = o.scale;
+                        _runner_obstacle_cube.draw(true);
+                    }
+                }
             }
-            _light._shadow_dirty = false;
+            if (!_runner_mode) {
+                _light._shadow_dirty = false;
+            }
         }
 
         // draw color
@@ -196,15 +197,11 @@ struct Engine {
                 }
                 _runner_player.draw();
                 for (auto &o : _obstacles) {
+                    if (!o.active) continue;
                     _runner_obstacle_cube._transform._position = glm::vec3(lane_x(o.lane), 0.6f, o.z);
                     _runner_obstacle_cube._transform._scale = o.scale;
                     _runner_obstacle_cube.draw();
                 }
-            } else {
-                _sponza.draw();
-                _cube_textured.draw();
-                _cube_vertcols.draw();
-                _sphere.draw();
             }
 
         // present drawn image to screen
@@ -372,7 +369,7 @@ struct Engine {
             }
         }
         // ----- Collision (same lane + z threshold) -----
-        const float playerZ = 0.0f;
+        const float playerZ = _player_z;
 
         for (const auto &ob : _obstacles) {
             if (!ob.active) continue;
@@ -397,7 +394,7 @@ struct Engine {
         }
 
         // update player transform (after physics)
-        _runner_player._transform._position = glm::vec3(_player_x, _player_y, 0.0f);
+        _runner_player._transform._position = glm::vec3(_player_x, _player_y, _player_z);
 
         // --- camera: behind runner (use tunables below) ---
         glm::vec3 desired(
@@ -439,7 +436,7 @@ struct Engine {
     int _obstacles_per_row_min = 1;
     int _obstacles_per_row_max = 2;
 
-    float _player_z = 0.0f;           // keep player around z=0
+    float _player_z = 0.8f;           // place player slightly closer to camera
 
     bool _runner_mode = true;
     bool _runner_game_over = false;
@@ -467,7 +464,7 @@ struct Engine {
     // camera tuning (runner POV)
     float _cam_height = 1.6f;   // lower => less sky
     float _cam_back   = 3.4f;   // closer => bigger obstacles (keep + if your camera looks toward -Z)
-    float _cam_pitch  = -0.55f;  // radians (~40deg) looking down at the track
+    float _cam_pitch  = -0.52f;  // slightly less downward for easier obstacle reading
     float _cam_follow = 14.0f;  // higher => snappier follow
 
 
