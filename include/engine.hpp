@@ -49,10 +49,10 @@ struct Engine {
 
         // ---RUNNER GAME INIT---
         // Runner: cubes for a clean aesthetic
-        _runner_player.init(Primitive::eCube, "grass.png");
-        _runner_ground_tile.init(Primitive::eCube, "grass.png");
+        _runner_player.init(Primitive::eCube, "player.png");
+        _runner_ground_tile.init(Primitive::eCube, "stone.png");
         // obstacles: keep vertex-colored cube, but make it less shiny so it reads better
-        _runner_obstacle_cube.init(Primitive::eCube);
+        _runner_obstacle_cube.init(Primitive::eCube, "thwomp.png");
         if (!_runner_obstacle_cube._materials.empty()) {
             _runner_obstacle_cube._materials[0]._specular = 0.15f;
             _runner_obstacle_cube._materials[0]._specular_shininess = 6.0f;
@@ -179,7 +179,7 @@ struct Engine {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             
             // choose color to clear screen with
-            glClearColor(0.05f, 0.07f, 0.12f, 1.0f); // dark blue night
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // black sky
             // clear image before drawing to it
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
